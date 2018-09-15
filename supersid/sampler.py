@@ -22,6 +22,7 @@
 from __future__ import print_function   # use the new Python 3 'print' function
 from struct import unpack as st_unpack
 from numpy import array
+import threading
 
 audioModule=[]
 try:
@@ -38,6 +39,7 @@ try:
             self.FORMAT = alsaaudio.PCM_FORMAT_S16_LE
             self.audio_sampling_rate = audio_sampling_rate
             card = 'sysdefault:CARD=' + card  # to add in the .cfg file under [Linux] section
+            self.lock = threading.Lock()
             self.inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE, alsaaudio.PCM_NORMAL, card)
             self.inp.setchannels(1)
             self.inp.setrate(audio_sampling_rate)
@@ -46,19 +48,34 @@ try:
             self.name = "alsaaudio sound card capture on " + card
 
         def capture_1sec(self):
-            raw_data = b''
-            while len(raw_data) < 2 * self.audio_sampling_rate:
+            # Use a lock to avoid reentrancy
+            with self.lock:
+                # Since there's no way to pause capture (pause() unimplemented in alsaaudio), and we don't read continuously, we expect overruns.
+                # Discard first buffer.  This will flush the overrun and restart the acquisition chain.
                 length,data = self.inp.read()
-                if length> 0: raw_data += data
-            return array(st_unpack("%ih"%self.audio_sampling_rate, raw_data[:2 * self.audio_sampling_rate]))
+
+                raw_data = b''
+                while len(raw_data) < 2 * self.audio_sampling_rate:
+                    length,data = self.inp.read()
+                    if length < 0: 
+                        print('overrun! discarding data...') 
+                        raise IOError
+                    elif length == 0: 
+                        print('empty read!')
+                        break       # should this ever happen?
+                    elif length > 0: 
+                        raw_data += data
+                return array(st_unpack("%ih"%self.audio_sampling_rate, raw_data[:2 * self.audio_sampling_rate]))
         
         def close(self):
-            pass  # to check later if there is something to do
+            if self.inp != None:
+                self.inp.close()
+                self.inp = None
 
         def info(self):
             print(self.name, "at", self.audio_sampling_rate,"Hz")
             one_sec = self.capture_1sec()
-            print(len(one_sec),"bytes read from", self.name, one_sec.shape)
+            print(len(one_sec),"samples read from", self.name, one_sec.shape)
             print(one_sec[:10])
             print("Vector sum", one_sec.sum())
         
@@ -153,9 +170,13 @@ try:
             print("default device :", self.pa_lib.get_default_input_device_info())
             default_capability = self.pa_lib.get_default_host_api_info()
             print("default device Capability", default_capability)
-            is_supported = self.pa_lib.is_format_supported(input_format=self.FORMAT, input_channels=1,
-                                                       rate=self.audio_sampling_rate, input_device=0)
-            print("expected format is supported?", is_supported)
+            try:
+                is_supported = self.pa_lib.is_format_supported(input_format=self.FORMAT, input_channels=1,
+                                                           rate=self.audio_sampling_rate, input_device=0)
+            except ValueError:
+                print("expected format is supported?", False)
+            else:
+                print("expected format is supported?", is_supported)
             
 except ImportError:
     pass
@@ -235,6 +256,7 @@ if __name__ == '__main__':
                 for sampling_rate in [48000, 96000]:
                     sc = alsaaudio_soundcard(card, 1024, sampling_rate)
                     sc.info()
+                    sc.close()
             except alsaaudio.ALSAAudioError as err:
                 print("! ERROR capturing sound on card", card)
                 print(err)

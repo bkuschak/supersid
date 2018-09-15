@@ -126,10 +126,12 @@ class SuperSID():
         self.viewer.status_display(message, level=1)
         signal_strengths = []
         try:
+            # BK - there is a race here.  Previously triggered capture might not be done if it was slow last time.  Use mutex inside capture_1sec()
             data = self.sampler.capture_1sec()  # return a list of 1 second signal strength
-            Pxx, freqs = self.psd(data, self.sampler.NFFT, self.sampler.audio_sampling_rate)
-            for binSample in self.sampler.monitored_bins:
-                signal_strengths.append(Pxx[binSample])
+            if len(data) > 0:
+                Pxx, freqs = self.psd(data, self.sampler.NFFT, self.sampler.audio_sampling_rate)
+                for binSample in self.sampler.monitored_bins:
+                    signal_strengths.append(Pxx[binSample])
         except IndexError as idxerr:
             print("Index Error:", idxerr)
             print("Data len:", len(data))
