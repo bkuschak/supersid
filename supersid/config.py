@@ -82,7 +82,9 @@ class Config(dict):
                                     ('audio_sampling_rate', int, None),
                                     ('log_interval', int, None), 
                                     ('number_of_stations', int, None),
-                                    ('scaling_factor', float, None)
+                                    ('scaling_factor', float, None),
+                                    ('plot_freq_low', float, 0),
+                                    ('plot_freq_high', float, 0)
                                     ),
 
                       "Capture":   (("Audio", str, 'pyaudio'),          # soundcard: alsaaudio or pyaudio ; server

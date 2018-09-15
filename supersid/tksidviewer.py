@@ -107,6 +107,10 @@ class tkSidViewer():
             for s in self.controller.config.stations:
                 freq = int(s['frequency'])
                 self.axes.axvline(x=freq, color='r')
+		low = self.controller.config['plot_freq_low']
+		high = self.controller.config['plot_freq_high']
+		if low != 0 and high != 0:
+			self.axes.set_xlim([low, high])
                 self.axes.text(freq, top_max * 0.9, s['call_sign'],
                                 horizontalalignment='center',
                                 bbox={'facecolor': 'w', 'alpha': 0.5, 'fill': True})
@@ -149,3 +153,4 @@ class tkSidViewer():
                 ('Any File','*.*')]
         fileName = FileDialog.asksaveasfilename(parent=self.tk_root, filetypes=filetypes, initialfile=initialfile ,title=title)
         return fileName
+
