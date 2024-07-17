@@ -95,7 +95,7 @@ class SUPERSID_PLOT():
         d = t.day
         return '%(y)04d-%(m)02d-%(d)02d --' % {'y':y,'m':m, 'd': d}
 
-    def plot_filelist(self, filelist, showPlot = True, eMail=None, pdf=None, web=False, config=None):
+    def plot_filelist(self, filelist, showPlot = True, eMail=None, pdf=None, web=False, config=None, stations="*"):
         """Read the files in the filelist parameters.
            Each data are combine in one plot.
            That plot can be displayed or not (showPlot), sent by email (eMail provided), saved as pdf (pdf provided).
@@ -145,6 +145,11 @@ class SUPERSID_PLOT():
             figTitle.append(os.path.basename(filename)[:-4]) # extension .csv assumed
             sFile = SidFile(filename)
             for station in sFile.stations:
+                # BK skip station if it doesn't exist in the list provided
+                print("BK: stations", stations)
+                if stations != "*" and station not in stations.split(","):
+                    continue
+
                 # Does this station already have a color? if not, reserve one
                 if station not in colorStation:
                     colorStation[station] = colorList[colorIdx % len(colorList)] + '-'  # format like 'b-'
@@ -257,9 +262,9 @@ class SUPERSID_PLOT():
 For running supersid_plot.py directly from command line
 '''
 
-def do_main(filelist, showPlot = True, eMail=None, pdf=None, web=False, config=None):
+def do_main(filelist, showPlot = True, eMail=None, pdf=None, web=False, config=None, stations="*"):
     ssp = SUPERSID_PLOT()
-    ssp.plot_filelist(filelist, showPlot, eMail, pdf, web, config);
+    ssp.plot_filelist(filelist, showPlot, eMail, pdf, web, config, stations);
 
 if __name__ == '__main__':
     filenames = ""
@@ -339,6 +344,10 @@ if __name__ == '__main__':
             filenames = ",".join(lstFileNames)
     else:
         filenames = args.filename
+        if args.station_id != None:
+            strStations = args.station_id
+        else:
+            strStations = "*"
     
     if args.verbose:
         print("List of files:", filenames)
@@ -349,7 +358,8 @@ if __name__ == '__main__':
                 eMail=args.email or config.get("to_mail", None),
                 pdf=args.pdffilename,
                 web = args.webData,
-                config=config)
+                config=config,
+                stations=strStations)
     else:
         parser.error("No file to plot found.")
 
